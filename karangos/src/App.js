@@ -83,6 +83,10 @@ function Main() {
                 <ClientsForm />
               </Route>
 
+              <Route path="/edit/:id">
+                <KarangosForm />
+              </Route>
+
             </Switch>
           </Box>
         <FooterBar />

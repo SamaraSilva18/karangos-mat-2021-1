@@ -124,8 +124,8 @@ export default function KarangosList() {
       headerName: 'Ano',
       align: 'center',
       headerAlign: 'center', 
-      flex: true, 
-      sortComparator: (v1, v2) => Number(v1) > Number(v2) ? 1 : -1
+      flex: true,
+      sortComparator: (v1, v2) => Number(v1) > Number(v2) ? 1 : -1 
     },
     { 
       field: 'importado', 
@@ -150,10 +150,10 @@ export default function KarangosList() {
       align: 'right', 
       headerAlign: 'right', 
       flex: true,
-      valueGetter: params => (
+      valueFormatter: params => (
         Number(params.value).toLocaleString('pt-br', { style: 'currency', currency: 'BRL' })
       ),
-      sortable: false
+      sortComparator: (v1, v2) => Number(v1) > Number(v2) ? 1 : -1
     },
     { 
       field: 'editar',
@@ -162,7 +162,7 @@ export default function KarangosList() {
       headerAlign: 'center', 
       flex: true,
       renderCell: params => (
-        <IconButton aria-label="editar">
+        <IconButton aria-label="editar" onClick={() => history.push(`/edit/${params.id}`)}>
           <EditIcon />
         </IconButton>
       )

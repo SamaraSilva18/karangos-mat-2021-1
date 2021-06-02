@@ -10,10 +10,11 @@ import InputAdornment from '@material-ui/core/InputAdornment'
 import Toolbar from '@material-ui/core/Toolbar'
 import Button from '@material-ui/core/Button'
 import axios from 'axios'
-import { useHistory } from 'react-router-dom'
+import { useHistory, useParams } from 'react-router-dom'
 import Snackbar from '@material-ui/core/Snackbar'
 import MuiAlert from '@material-ui/lab/Alert'
 import React from 'react'
+import ConfirmDialog from '../ui/ConfirmDialog'
 
 const useStyles = makeStyles(theme => ({
   form: {
@@ -86,7 +87,7 @@ export default function KarangosForm() {
     placa: '',
     preco: 0
   })
-  const [currentId, setCurrentId] = useState()
+  
 
   const [importadoChecked, setImportadoChecked] = useState(false)
 
@@ -104,74 +105,112 @@ export default function KarangosForm() {
   const [error, setError] = useState({
     marca: '',
     modelo: '',
+    cor: '',
     placa: '',
     preco: ''
   })
 
-  const [isValid, setIsValid] = useState(false)
-
   const [isModified, setIsModified] = useState(false)
 
+  const [dialogOpen, setDialogOpen] = useState(false) // O diálogo de confirmação está aberto?
+
+  const [title, setTitle] = useState('Cadastrar novo karango')
+
   const history = useHistory()
+  const params = useParams()
+
+  // useEffect() para quando o formulário for carregado (só na inicialização)
+  useEffect(() => {
+    // Verificamos se a rota atual contém o parâmetro id
+    // Em caso positivo, buscamos os dados no back-end e carregamos o formulário para edição
+    if(params.id) {
+      setTitle('Editar karango')
+      getData(params.id)
+    }
+  }, [])
+
+  async function getData(id) {
+    try {
+      let response = await axios.get(`https://api.faustocintra.com.br/karangos/${id}`)
+      setKarango(response.data)
+    }
+    catch(error) {
+      setSbStatus({
+        open: true,
+        severity: 'error',
+        message: 'Não foi possível carregar os dados para edição.'
+      })
+    }
+  }
 
   function handleInputChange(event, property) {
-    setCurrentId(event.target.id)
+
+    const karangoTemp = {...karango}
+
+
     if(event.target.id) property = event.target.id
 
     if(property === 'importado') {
       const newState = ! importadoChecked // Inverte o valor
-      if(newState) setKarango({...karango, importado: '1'})
-      else setKarango({...karango, importado: '0'})
+      if(newState) karangoTemp.importado = '1'
+      else karangoTemp.importado = '0'
       setImportadoChecked(newState) 
     }
     else if(property === 'placa') {
-      setKarango({...karango, placa: event.target.value.toUpperCase()})
+      karangoTemp.placa = event.target.value.toUpperCase()
     }
     else {
       // Quando o nome de uma propriedade de objeto aparece entre [],
       // significa que o nome da propriedade será determinado pela
       // variável ou expressão contida dentro dos colchetes
-      setKarango({...karango, [property]: event.target.value})
+      karangoTemp[property] = event.target.value
     }
+    setKarango(karangoTemp)
     setIsModified(true)   // O formulário foi modificado
-    validate()  // Dispara a validação
+    validate(karangoTemp)  // Dispara a validação
   }
 
-  function validate() {
-    let valid = true
+  function validate(data) {
+    let isValid = true
 
-    const newErrors = {
+    const errorTemp = {
       marca: '',
       modelo: '',
+      cor: '',
       placa: '',
       preco: ''
     }
 
     // trim(): retira espaços em branco do início e do final de uma string
-    if(karango.marca.trim() === '') {
-      newErrors.marca = 'A marca deve ser preenchida'
-      valid = false
+    if(data.marca.trim() === '') {
+      errorTemp.marca = 'A marca deve ser preenchida'
+      isValid = false
     }     
 
-    if(karango.modelo.trim() === '') {
-      newErrors.modelo = 'O modelo deve ser preenchido'
-      valid = false
+    if(data.modelo.trim() === '') {
+      errorTemp.modelo = 'O modelo deve ser preenchido'
+      isValid = false
+    }
+
+    if(data.cor.trim() === '') {
+      errorTemp.cor = 'A cor deve ser informada'
+      isValid = false
     }
 
     // A placa não pode ser string vazia nem conter sublinhado
-    if(karango.placa.trim() === '' || karango.placa.includes('_')) {
-      newErrors.placa = 'A placa deve ser preenchida corretamente'
-      valid = false
+    if(data.placa.trim() === '' || data.placa.includes('_')) {
+      errorTemp.placa = 'A placa deve ser preenchida corretamente'
+      isValid = false
     }
 
     // O preço deve ser numérico e maior que zero
-    if(isNaN(karango.preco) || Number(karango.preco) <= 0) {
-      newErrors.preco = 'O preço deve ser informado e maior que zero'
-      valid = false
+    if(isNaN(data.preco) || Number(data.preco) <= 0) {
+      errorTemp.preco = 'O preço deve ser informado e maior que zero'
+      isValid = false
     }
 
-    setError(newErrors)
-    setIsValid(valid)
+    setError(errorTemp)
+    return isValid
   }
 
   async function saveData() {
@@ -179,7 +218,10 @@ export default function KarangosForm() {
       // Desabilita o botão de enviar para evitar envios duplicados
       setSendBtnStatus({disabled: true, label: 'Enviando...'})
       
-      await axios.post('https://api.faustocintra.com.br/karangos', karango)
+      // Se estivermos editando, precisamos enviar os dados com o verbo HTTP PUT
+      if(params.id) await axios.put(`https://api.faustocintra.com.br/karangos/${params.id}`, karango)
+      // Senão, estaremos criando um novo registro, e o verbo HTTP a ser usado é o POST
+      else await axios.post('https://api.faustocintra.com.br/karangos', karango)
       
       // Mostra a SnackBar
       setSbStatus({open: true, severity: 'success', message: 'Dados salvos com sucesso!'})
@@ -197,7 +239,8 @@ export default function KarangosForm() {
 
     event.preventDefault()    // Evita que a página seja recarregada
 
-    saveData()
+    // Só envia para o banco de dados se o formulário for válido
+    if(validate(karango)) saveData()
 
   }
 
@@ -208,15 +251,34 @@ export default function KarangosForm() {
     if(sbStatus.severity === 'success') history.push('/list')
   }
 
+  function handleDialogClose(result) {
+    setDialogOpen(false)
+
+    // Se o usuário concordou em voltar 
+    if(result) history.push('/list')
+  }
+
+  function handleGoBack() {
+    // Se o formulário tiver sido modificado, exibimos o diálogo de confirmação
+    if(isModified) setDialogOpen(true)
+    // Senão, podemos voltar diretamente para a listagem
+    else history.push('/list')
+  }
+
   return (
     <>
+
+      <ConfirmDialog isOpen={dialogOpen} onClose={handleDialogClose}>
+        Há dados não salvos. Deseja realmente voltar?
+      </ConfirmDialog>
+
       <Snackbar open={sbStatus.open} autoHideDuration={6000} onClose={handleSbClose}>
         <MuiAlert elevation={6} variant="filled" onClose={handleSbClose} severity={sbStatus.severity}>
           {sbStatus.message}
         </MuiAlert>
       </Snackbar>
 
-      <h1>Cadastrar novo karango</h1>
+      <h1>{title}</h1>
       <form className={classes.form} onSubmit={handleSubmit}>
         
         <TextField 
@@ -255,8 +317,10 @@ export default function KarangosForm() {
           placeholder="Informe a cor do veículo"
           select
           fullWidth
+          error={error.cor !== ''}
+          helperText={error.cor}
         >
-          { colors.map(color => <MenuItem value={color}>{color}</MenuItem>)}
+          { colors.map(color => <MenuItem value={color} key={color}>{color}</MenuItem>)}
         </TextField>
 
         <TextField 
@@ -270,7 +334,7 @@ export default function KarangosForm() {
           select
           fullWidth
         >
-          { years.map(year => <MenuItem value={year}>{year}</MenuItem>)}
+          { years.map(year => <MenuItem value={year} key={year}>{year}</MenuItem>)}
         </TextField>
 
         <FormControl fullWidth>
@@ -325,18 +389,16 @@ export default function KarangosForm() {
           <Button type="submit" variant="contained" color="secondary" disabled={sendBtnStatus.disabled}>
             {sendBtnStatus.label}
           </Button>
-          <Button variant="contained">Voltar</Button>
+          <Button variant="contained" onClick={handleGoBack}>Voltar</Button>
         </Toolbar>
 
-        <div>
+        {/* <div>
           {JSON.stringify(karango)}
           <br />
           currentId: {JSON.stringify(currentId)}
           <br />
-          isValid: {JSON.stringify(isValid)}
-          <br />
           isModified: {JSON.stringify(isModified)}
-        </div>
+        </div> */}
       </form>
     </>
   )
