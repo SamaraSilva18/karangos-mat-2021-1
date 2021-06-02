@@ -114,7 +114,7 @@ export default function KarangosForm() {
 
   const [dialogOpen, setDialogOpen] = useState(false) // O diálogo de confirmação está aberto?
 
-  const [title, setTitle] = useState('Cadastrar novo karango')
+  const [title, setTitle] = useState('Cadastrar novo Karango')
 
   const history = useHistory()
   const params = useParams()

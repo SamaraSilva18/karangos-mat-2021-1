@@ -87,6 +87,10 @@ function Main() {
                 <KarangosForm />
               </Route>
 
+              <Route path="/editc/:id">
+                <ClientsForm />
+              </Route>
+
             </Switch>
           </Box>
         <FooterBar />

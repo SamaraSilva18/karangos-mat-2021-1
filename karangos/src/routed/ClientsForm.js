@@ -6,9 +6,11 @@ import { makeStyles } from '@material-ui/core/styles'
 import Toolbar from '@material-ui/core/Toolbar'
 import Button from '@material-ui/core/Button'
 import axios from 'axios'
-import { useHistory } from 'react-router-dom'
+import { useHistory, useParams } from 'react-router-dom'
 import Snackbar from '@material-ui/core/Snackbar'
 import MuiAlert from '@material-ui/lab/Alert'
+import React from 'react'
+import ConfirmDialog from '../ui/ConfirmDialog'
 
 const useStyles = makeStyles(theme => ({
   form: {
@@ -74,9 +76,9 @@ export default function ClientsForm() {
     '#': '[0-9A-Ja-j]'
   }
 
-  // Máscara de entrada para a placa
   const cpfMask = '000.000.000-00'
   const telMask = '(00)00000-0000'
+  const rgMask = '00.000.000-0'
   // Máscara para CPF: '000.000.000-00'
   // Máscara para CNPJ: '00.000.000/0000-00'
 
@@ -94,7 +96,6 @@ export default function ClientsForm() {
     telefone: '',
     email:''
   })
-  const [currentId, setCurrentId] = useState()
 
   const [sendBtnStatus, setSendBtnStatus] = useState({
     disabled: false,
@@ -107,15 +108,137 @@ export default function ClientsForm() {
     message: '' 
   })
 
+  const [error, setError] = useState({
+    nome: '',
+    cpf: '',
+    rg: '',
+    logradouro: '',
+    num_imovel: '',
+    bairro: '',
+    municipio: '',
+    uf: '',
+    telefone: '',
+    email:''
+  })
+
+  const [isModified, setIsModified] = useState(false)
+
+  const [dialogOpen, setDialogOpen] = useState(false) // O diálogo de confirmação está aberto?
+
+  const [title, setTitle] = useState('Cadastrar novo Cliente')
+
   const history = useHistory()
+  const params = useParams()
+
+  // useEffect() para quando o formulário for carregado (só na inicialização)
+  useEffect(() => {
+    // Verificamos se a rota atual contém o parâmetro id
+    // Em caso positivo, buscamos os dados no back-end e carregamos o formulário para edição
+    if(params.id) {
+      setTitle('Editar Cliente')
+      getData(params.id)
+    }
+  }, [])
+
+  async function getData(id) {
+    try {
+      let response = await axios.get(`https://api.faustocintra.com.br/clientes/${id}`)
+      setClient(response.data)
+    }
+    catch(error) {
+      setSbStatus({
+        open: true,
+        severity: 'error',
+        message: 'Não foi possível carregar os dados para edição.'
+      })
+    }
+  }
 
   function handleInputChange(event, property) {
-    setCurrentId(event.target.id)
+    
+    const clientTemp = {...client}
+
+
     if(event.target.id) property = event.target.id
-      // Quando o nome de uma propriedade de objeto aparece entre [],
-      // significa que o nome da propriedade será determinado pela
-      // variável ou expressão contida dentro dos colchetes
-      setClient({...client, [property]: event.target.value})
+
+    clientTemp[property] = event.target.value
+
+    setClient(clientTemp)
+    setIsModified(true)   // O formulário foi modificado
+    validate(clientTemp)  // Dispara a validação
+  }
+
+  function validate(data) {
+    let isValid = true
+
+    const errorTemp = {
+      nome: '',
+      cpf: '',
+      rg: '',
+      logradouro: '',
+      num_imovel: '',
+      bairro: '',
+      municipio: '',
+      uf: '',
+      telefone: '',
+      email:''
+    }
+
+    // trim(): retira espaços em branco do início e do final de uma string
+    if(data.nome.trim() === '') {
+      errorTemp.nome = 'O nome do cliente deve ser preenchido!'
+      isValid = false
+    }     
+
+    if(data.cpf.trim() === '' || data.cpf.includes('_')) {
+      errorTemp.cpf = 'O cpf deve ser preenchido corretamente!'
+      isValid = false
+    }
+
+    if(data.rg.trim() === '' || data.rg.includes('_')) {
+      errorTemp.rg = 'O rg deve ser preenchido corretamente!'
+      isValid = false
+    }
+
+    if(data.logradouro.trim() === '') {
+      errorTemp.logradouro = 'O logradouro do cliente deve ser informado!'
+      isValid = false
+    }
+
+    if(data.num_imovel.trim() === '') {
+      errorTemp.num_imovel = 'O número da casa deve ser informado!'
+      isValid = false
+    }
+
+    if(data.bairro.trim() === '') {
+      errorTemp.bairro = 'O bairro deve ser informado!'
+      isValid = false
+    }
+
+
+    if(data.municipio.trim() === '') {
+      errorTemp.municipio = 'O múnicipio deve ser informado!'
+      isValid = false
+    }
+
+    if(data.uf.trim() === '') {
+      errorTemp.uf = 'O estado deve ser informado!'
+      isValid = false
+    }
+
+    // O telefone não pode ser uma string vazia
+    if(data.telefone.trim() === '' || data.telefone.includes('_')) {
+      errorTemp.telefone = 'O telefone deve ser preenchido corretamente!'
+      isValid = false
+    }
+
+    if(data.email.trim() === '') {
+      errorTemp.email = 'O email deve ser informado!'
+      isValid = false
+    }
+
+    setError(errorTemp)
+    return isValid
   }
 
   async function saveData() {
@@ -123,6 +246,9 @@ export default function ClientsForm() {
       // Desabilita o botão de enviar para evitar envios duplicados
       setSendBtnStatus({disabled: true, label: 'Enviando...'})
       
+      // Se estivermos editando, precisamos enviar os dados com o verbo HTTP PUT
+      if(params.id) await axios.put(`https://api.faustocintra.com.br/clientes/${params.id}`, client)
+      // Senão, estaremos criando um novo registro, e o verbo HTTP a ser usado é o POST
       await axios.post('https://api.faustocintra.com.br/clientes', client)
       
       // Mostra a SnackBar
@@ -141,7 +267,7 @@ export default function ClientsForm() {
 
     event.preventDefault()    // Evita que a página seja recarregada
 
-    saveData()
+    if(validate(client)) saveData()
 
   }
 
@@ -149,18 +275,37 @@ export default function ClientsForm() {
     setSbStatus({...sbStatus, open: false})
 
     // Retorna para a página de listagem em caso de sucesso
-    if(sbStatus.severity === 'success') history.push('/list')
+    if(sbStatus.severity === 'success') history.push('/listc')
+  }
+
+  function handleDialogClose(result) {
+    setDialogOpen(false)
+
+    // Se o usuário concordou em voltar 
+    if(result) history.push('/listc')
+  }
+
+  function handleGoBack() {
+    // Se o formulário tiver sido modificado, exibimos o diálogo de confirmação
+    if(isModified) setDialogOpen(true)
+    // Senão, podemos voltar diretamente para a listagem
+    else history.push('/listc')
   }
 
   return (
     <>
+
+      <ConfirmDialog isOpen={dialogOpen} onClose={handleDialogClose}>
+        Há dados não salvos. Deseja realmente sair?
+      </ConfirmDialog>
+
       <Snackbar open={sbStatus.open} autoHideDuration={6000} onClose={handleSbClose}>
         <MuiAlert elevation={6} variant="filled" onClose={handleSbClose} severity={sbStatus.severity}>
           {sbStatus.message}
         </MuiAlert>
       </Snackbar>
 
-      <h1>Cadastrar novo Cliente</h1>
+      <h1>{title}</h1>
       <form className={classes.form} onSubmit={handleSubmit}>
         
         <TextField 
@@ -172,6 +317,8 @@ export default function ClientsForm() {
           required  /* not null, precisa ser preenchido */
           placeholder="Informe o nome do cliente"
           fullWidth
+          error={error.nome !== ''}
+          helperText={error.nome}
         />
 
         <InputMask
@@ -187,19 +334,28 @@ export default function ClientsForm() {
             required  /* not null, precisa ser preenchido */
             placeholder="Informe o CPF do cliente"
             fullWidth
+            error={error.cpf !== ''}
+            helperText={error.cpf}
           />}
         </InputMask>
 
-        <TextField 
-          id="rg" 
+        <InputMask 
+          id="rg"
+          mask={rgMask}
+          formatChars={formatChars} 
+          value={client.rg}
+          onChange={(event) => handleInputChange(event, 'rg')}
+        >
+          {() => <TextField
           label="RG" 
           variant="filled"
-          value={client.rg}
-          onChange={handleInputChange}
           required  /* not null, precisa ser preenchido */
           placeholder="Informe o RG do cliente"
           fullWidth
-        />
+          error={error.rg !== ''}
+          helperText={error.rg}
+        />}
+        </InputMask>
 
         <TextField 
           id="logradouro" 
@@ -210,6 +366,8 @@ export default function ClientsForm() {
           required  /* not null, precisa ser preenchido */
           placeholder="Informe o nome da rua do cliente"
           fullWidth
+          error={error.logradouro !== ''}
+          helperText={error.logradouro}
         />
 
         <TextField 
@@ -221,6 +379,8 @@ export default function ClientsForm() {
           required  /* not null, precisa ser preenchido */
           placeholder="Informe o número da casa do cliente"
           fullWidth
+          error={error.num_imovel !== ''}
+          helperText={error.num_imovel}
         />
 
         <TextField 
@@ -229,7 +389,7 @@ export default function ClientsForm() {
           variant="filled"
           value={client.complemento}
           onChange={handleInputChange}
-          placeholder="Adicione um complemento ao endereço"
+          placeholder="Adicione um complemento ao endereço (opcional)."
           fullWidth
         />
 
@@ -242,6 +402,8 @@ export default function ClientsForm() {
           required  /* not null, precisa ser preenchido */
           placeholder="Informe o bairro do cliente"
           fullWidth
+          error={error.bairro !== ''}
+          helperText={error.bairro}
         />
 
         <TextField 
@@ -253,6 +415,8 @@ export default function ClientsForm() {
           required  /* not null, precisa ser preenchido */
           placeholder="Informe a cidade do cliente"
           fullWidth
+          error={error.municipio !== ''}
+          helperText={error.municipio}
         />
 
         <TextField 
@@ -265,6 +429,8 @@ export default function ClientsForm() {
           placeholder="Informe o estado do cliente"
           select
           fullWidth
+          error={error.uf !== ''}
+          helperText={error.uf}
         >
           { estados.map(estado => <MenuItem value={estado}>{estado}</MenuItem>)}
         </TextField>
@@ -282,6 +448,8 @@ export default function ClientsForm() {
             required  /* not null, precisa ser preenchido */
             placeholder="Informe o telefone do cliente"
             fullWidth
+            error={error.telefone !== ''}
+            helperText={error.telefone}
           />}
         </InputMask>
 
@@ -294,20 +462,22 @@ export default function ClientsForm() {
           required  /* not null, precisa ser preenchido */
           placeholder="Informe o e-mail do cliente"
           fullWidth
+          error={error.email !== ''}
+          helperText={error.email}
         />
 
         <Toolbar className={classes.toolbar}>
           <Button type="submit" variant="contained" color="secondary" disabled={sendBtnStatus.disabled}>
             {sendBtnStatus.label}
           </Button>
-          <Button variant="contained">Voltar</Button>
+          <Button variant="contained" onClick={handleGoBack}>Voltar</Button>
         </Toolbar>
 
-        <div>
+        {/* <div>
           {JSON.stringify(client)}
           <br />
           currentId: {JSON.stringify(currentId)}
-        </div>
+        </div> */}
       </form>
     </>
   )
