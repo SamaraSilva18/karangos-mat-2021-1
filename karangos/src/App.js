@@ -68,7 +68,7 @@ function Main() {
           <Box id="routed" className={classes.routed}>
             <Switch> {/* Determina qual elemento sera exibido de acordo com a rota */}
 
-              <Route path="/">
+              <Route exact path="/">
                 <Homepage />
               </Route>
 
