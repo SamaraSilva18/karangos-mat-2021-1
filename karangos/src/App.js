@@ -32,6 +32,7 @@ import KarangosList from './routed/KarangosList2'
 import KarangosForm from './routed/KarangosForm'
 import ClientsList from './routed/ClientsList'
 import ClientsForm from './routed/ClientsForm'
+import Homepage from './routed/Homepage'
 
 const theme = createMuiTheme({
   palette: {
@@ -66,6 +67,10 @@ function Main() {
         <TopBar />
           <Box id="routed" className={classes.routed}>
             <Switch> {/* Determina qual elemento sera exibido de acordo com a rota */}
+
+              <Route path="/">
+                <Homepage />
+              </Route>
 
               <Route path="/list">
                 <KarangosList />
